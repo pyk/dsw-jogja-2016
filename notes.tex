@@ -1,0 +1,743 @@
+\documentclass[a4paper,12pt]{tufte-handout}
+
+\title{Clustering Semantically Similar Words
+    \thanks{
+        Author: Bayu Aldi Yansyah
+        bay@artificialintelligence.id
+    }
+}
+\author{Data Science Weekend Camp \& Jam 2016}
+\date{26 November 2016} % without \date command, current date is supplied
+
+\usepackage{graphicx} % allow embedded images
+  \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+  \graphicspath{{graphics/}} % set of paths to search for images
+\usepackage{amsmath}  % extended mathematics
+\usepackage{booktabs} % book-quality tables
+\usepackage{units}    % non-stacked fractions and better unit spacing
+\usepackage{multicol} % multiple column layout facilities
+\usepackage{lipsum}   % filler text
+\usepackage{fancyvrb} % extended verbatim environments
+  \fvset{fontsize=\normalsize}
+  % default font size for fancy-verbatim environments
+\usepackage{datetime} % for time stuff
+% For table
+\usepackage{multirow}
+% For image
+\usepackage{float}
+% For psuedocode
+\usepackage[ruled]{algorithm2e}
+\usepackage{algpseudocode}
+
+% Custom symbols
+\newcommand{\N}{\mathbb{N}} % set of natural number
+\newcommand{\R}{\mathbb{R}} % set of real number
+
+% Standardize command font styles and environments
+\newcommand{\doccmd}[1]{\texttt{\textbackslash#1}}
+% command name -- adds backslash automatically
+\newcommand{\docopt}[1]{
+    \ensuremath{\langle}
+    \textrm{\textit{#1}}
+    \ensuremath{\rangle}
+}% optional command argument
+\newcommand{\docarg}[1]{\textrm{\textit{#1}}}% (required) command argument
+\newcommand{\docenv}[1]{\textsf{#1}}% environment name
+\newcommand{\docpkg}[1]{\texttt{#1}}% package name
+\newcommand{\doccls}[1]{\texttt{#1}}% document class name
+\newcommand{\docclsopt}[1]{\texttt{#1}}% document class option name
+\newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}
+% command specification environment
+
+\begin{document}
+\maketitle% this prints the handout title, author, and date
+
+\marginnote{---}
+\marginnote{Revisi:\newline}
+\marginnote{\today{} \currenttime{}}
+\marginnote{Versi terbaru:}
+\marginnote{https://github.com/pyk/talks}
+\marginnote{---}
+
+% Ini abstractnya
+\begin{abstract}
+\noindent
+Dokumen ini berisi materi yang akan kita bahas bersama pada sesi 
+"Clustering Semantically Similar Words" di Data Science Weekend Camp 
+\& Jam
+\footnote{5 Desember 2016 di Universitas Islam Indonesia, 
+Yogyakarta. http://datascienceweekend.id}.
+Para peserta di asumsikan sudah familiar dengan dasar-dasar
+\textit{Neural Networks (NN)}, 
+\textit{Natural Language Processing (NLP)} dan 
+\textit{Machine Learning (ML)}.
+\end{abstract}
+
+% Detailnya
+
+Kita akan mulai pembahasan dari pengenalan word clustering dan 
+apa aja yang kita butuhin untuk melakukan word clustering.
+Lalu di sesi ini kita juga akan membahas penerapan 
+\textit{Deep Learning} untuk NLP khususnya untuk \textit{Word Embedding}
+yaitu model neural networks
+\textit{Feed-forward Neural Net Language Model (NNLM)} dari Bengio et al (2003).
+
+Kita juga akan membahas 2 model dari Mikolov et al. (2013) 
+yang terinspirasi oleh
+NNLM, model ini populer dengan nama \textit{Word2Vec}. 
+
+Setelah itu kita akan bahas gimana cara mengukur kesamaan semantik
+antara dua kata menggunakan beberapa \textit{Similarity metrics} dan yang 
+terakhir kita bahas algoritma clustering \textit{Consensus Clustering}.
+
+Di bagian akhir akan ada juga studi kasus masalah apa yang bisa
+di selesaikan oleh tim Data Science di Sale Stock
+\footnote{Sale Stock Engineering https://careers.salestock.io/} 
+menggunakan word clustering ini.
+
+Untuk koreksi dan masukan bisa dikirimkan langsung ke email saya yah.
+\textsuperscript{1}
+
+\section{Introduction to Word Clustering}\label{sec:pengenalan}
+\textit{Word Clustering} adalah teknik yang digunakan untuk 
+mencari kelompok-kelompok kata dimana setiap kata dalam satu kelompok 
+memiliki kesamaan secara semantik.\cite{sanfilippo1999eagles}
+
+Misalkan kita punya himpunan kata:
+$$W = \{w_{1}, w_{2}, ..., w_{n}\}\mbox{, } n \in \N $$
+
+Tujuan kita adalah mencari kelompok-kelompok kata: 
+$$C = \{C_{1}, C_{2}, ..., C_{k}\}\mbox{, } k \in \N$$ 
+
+Dengan setiap kelompok kata $C_{i}$ kita definisikan sebagai:
+$$
+C_{i} = \{ w \mid \forall w \in W \mbox{ yang } similarity(w_{c}, w) \geq t\}
+$$
+
+Jadi $C_{i}$ adalah kelompok kata yang memiliki kesamaan satu dengan yang 
+lain. Di tiap-tiap $C_{i}$ terdapat kata utama $w_{c}$ atau sering disebut
+\textit{Centroid} dari kelompok kata 
+tersebut.\cite{Tan:2005:IDM:1095618:CH8}
+Kemudian $similarity(w_{c}, w)$ adalah suatu fungsi 
+yang menghitung nilai kesamaan antara kata $w_{c}$ dan kata $w$.
+$t$ adalah nilai batas kesamaan dimana jika nilai fungsi tersebut
+lebih besar dari $t$ maka $w_{c}$ dan $w$ dekat secara semantik. 
+
+Untuk $w_{1} \in C_{a}$ dan $w_{2} \in C_{b}$ berlaku 
+$similarity(w_{1}, w_{2}) < t$, sehingga:
+$$C_{a}\cap{}C_{b}=\emptyset{}\mbox{, }\forall C_{a}, C_{b} \in C$$
+atau dengan kata lain, tidak ada satu kata yang masuk dalam dua kelompok kata
+yang berbeda.
+
+Sebenernya fungsi $similarity(w_{c}, w)$ berguna untuk mencari
+nilai kesamaan bisa berdasarkan 2 kriteria: kesamaan berdasarkan leksikal
+dan kesamaan berdasarkan semantik. Di sesi ini kita akan bahas fungsi 
+$similarity(w_{c}, w)$ berdasarkan semantik aja. Bagi yang tertarik 
+tentang yang leksikal bisa baca papernya Gomaa dan Fahmy (2013).
+
+Untuk melakukan mengelompokkan kata yang sama secara semantik, 
+hal-hal harus kita lakukan adalah
+\begin{enumerate}
+  \item{Merepresentasikan kata menjadi sebuah semantik vektor\cite{jurafskyspeech3rd:CH15}
+  yang bisa kita hitung nilai kesamaan dan ketidaksaman semantiknya.}
+  \item{Menemukan $w_{c}$ untuk tiap cluster di $C$.}
+  \item{Menentukan metrik kesamaan $similarity(w_{c}, w)$ dan nilai
+  batas $t$. }
+\end{enumerate}
+
+Untuk yang langkah pertama kita bisa menggunakan teknik yang 
+dinamakan \textit{word embedding}. Untuk yang nomor dua kita bisa memakai
+\textit{Consensus Clustering} dan yang terakhir kita bisa menggunakan
+\textit{Cosine similarity}, \textit{Jaccard similarity} 
+atau \textit{Euclidean distance}.
+
+Perlu diketahui bahwa \textbf{semantik bukanlah sinonim}, dua kata 
+yang sama secara semantik bukan berarti bahwa dua kata tersebut 
+memiliki makna yang sama. 
+
+Dua kata dikatakan sama secara semantik, jika dua kata tersebut sering muncul \textbf{di konteks yang sama}. Jadi ada kemungkinan bahwa kata 
+yang berlawanan (antonim) sangatlah dekat secara semantik, 
+karena sering muncul di konteks yang sama.\cite{gomaa2013survey}
+
+Pada bagian berikutnya akan dibahas lebih detail tentang teknik 
+word embedding, dilanjutkan dengan bagaimana cara mengukur 
+kesamaan antara dua kata dan algoritma-algoritma clustering yang 
+bisa kita pakai.
+
+% Dua kata dikatakan sama secara leksikal jika kata tersebut memiliki 
+% \textit{string distance} yang kecil. \textit{String distance} adalah 
+% nilai yang merepresentasikan seberapa besar kesamaan urutan karakter 
+% pada dua kata. \cite{Jurafsky:2009:SLP:1214993:ED} 
+
+% Untuk mengetahui string distance antar dua kata, kita bisa menggunakan 
+% \textit{Character-Based Similarity Metric} seperti 
+% \textit{Longest Common SubString}, \textit{Levenshtein distance} 
+% dan \textit{N-gram}. 
+
+% Disesi ini kita akan mulai pembahasan di Semantik 
+% Vektor\cite{jurafskyspeech3rd:CH8} yaitu word2vec, kemudian dilanjutkan 
+% dengan algoritma aapa aja yang diapake untuk mengukur kesamaan antara
+% 2 vektor kata ini kita pake cosine similarity, euclidean distance dan 
+% jaccard
+% similarity.
+% Kemudian akan di lanjutkan dengan algoritma clustering consensus
+% clustering.
+% Kemudian studi kasus dari Salestockk bagaimana kami menggunakan ini.
+
+%TODO: kasih contoh. 
+%1. buat model word2vec 
+%2. ambil contoh satu kata
+%3. cari yg cosine similarity sama
+%4. cari penggunaan kalimatnya
+%5. masukkan disini
+
+% 6 algoritma ini bisa kita kelompokkan 
+% menjadi 2 kategori berdasarkan konteksnya. Pertama, 
+% \textit{Character-Based Similarity}: ada  Kedua 
+% \textit{Term-based Similarity}: ada  
+
+\section*{Word Embedding}\label{sec:word-embedding}
+% TODO: includegraphics yang wordnet itu 
+% http://stackoverflow.com/a/37832966
+% TODO: add gambar word vector kata bahasa terus vektor vektornya
+% kata => kotak round, tengahnya ada bulat merah. warna border abu2
+% $$\forall w \in W \mbox{ direpresentasikan } v_{w} \in \R^k 
+% \mbox{ dengan } k \in \N$$
+
+\textit{Word embedding} adalah teknik di 
+untuk memetakan kata menjadi vektor bilangan real berdimensi $k$. 
+Hasil dari \textit{word embedding} ini sering disebut 
+\textit{word vector} atau \textit{distributed representation of words}.
+\nocite{mikolov:NAACL-HLT-2013}
+\nocite{DBLP:journals/corr/MikolovSCCD13}
+
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=75mm, scale=0.2]{word-embedding-vis.pdf}
+  \end{center}
+  \caption{Visualisasi kata dengan representasi $k=5$ dimensional vektornya}
+\end{figure}
+
+Beberapa pendekatan yang bisa kita gunakan untuk melakukan pemetaan 
+kata menjadi vektor bilangan real antara lain pendekatan berdasarkan  
+neural networks, pendekatan berdasarkan
+reduksi dimensionalitas\cite{DBLP:journals/corr/LebretL13}
+dan pendekatan berdasarkan model probabilistik.\cite{
+globerson2007euclidean}
+
+Disini kita akan fokus pada pendekatan berdasarkan 
+neural networks. Pendekatan ini menggunakan model 
+neural networks untuk mempelajari representasi vektor 
+tiap kata yang ada di dalam korpus. 
+
+Kita akan bahas 3 model neural networks, yaitu
+\textit{Feedforward Neural Net Language Model}, 
+\textit{Continuous Bag-of-Words Model} dan 
+\textit{Continuous Skip-gram Model}.
+
+\marginnote{Vektor 1-of-$|V|$ adalah vektor dimana dari sebanyak $|V|$ unit
+  , ${w_{1}, w_{2} \ldots w_{|V|}}$ hanya ada satu unit aja yang bernilai
+  1 lainnya bernilai 0.
+}
+Model-model yang akan kita bahas menggunakan data training urutan kata
+$$w_{1}, w_{2} \ldots w_{T} \mbox{ untuk } w_{t} \in V$$
+dengan $x_{t}$ adalah representasi vektor 1-of-$|V|$ dari tiap
+kata $w_{t}$ yang ada di \textit{vocabulary} $V$.
+
+Untuk mempermudah membandingkan modelnya, kita akan memakai notasi
+dari Collobert et al. (2011), jadi
+setiap neural networks dengan jumlah layer $L$ bisa kita 
+tulis sebagai komposisi fungsi:
+\nocite{DBLP:journals/corr/abs-1103-0398}
+$$
+f_{\theta} \left( \cdot \right) = f_{\theta}^{L} \left( 
+f_{\theta}^{L-1} \left( \ldots f_{\theta}^{1} \left( \cdot \right) \ldots \right)
+\right)
+$$
+dengan parameter untuk masing-masing layernya $1 \leq l \leq L$:
+$$
+  \theta = \left(\theta^{1}, \theta^{2}, \ldots ,\theta^{L}\right)
+$$
+pada umumnya, setiap layer punya weight dan bias $\theta^{l}=(W^{l},b^{l})$.
+
+\subsection{Feedforward Neural Net Language Model (NNLM)}\label{sec:nnlm}
+% aku baca paper ini
+\nocite{sundermeyer2013comparison}
+NNLM\nocite{bengio2003neural} kita bahas pertama karena model inilah yang 
+menginspirasi dua model neural networks yang akan kita bahas 
+berikutnya.
+\begin{figure}
+  \begin{center}
+  \includegraphics{nnlm-pred-vis.pdf}
+  \end{center}
+  \caption{NNLM mencoba memprediksi kata apa yang akan muncul 
+  berikutnya $w_{t}$ berdasarkan 4 kata sebelumnya "bisa", "stock", 
+  "sale" dan "keren".
+  }
+\end{figure}
+
+Model ini di usulkan oleh Bengio et al. (2003) untuk mengatasi masalah 
+\textbf{curse of dimensionality}\footnote{Ini adalah istilah dari masalah 
+yang sering muncul ketika kita sedang mengolah data 
+\textit{high-dimensional}}. Ide sederhananya adalah model ini  
+ingin memprediksi kata yang akan muncul berikutnya $w_{t}$ berdasarkan 
+data $n$ kata sebelumnya $w_{t-1} \dots w_{t-n}$.
+
+Model ini terdiri dari 4 layer: \textit{Input layer}, 
+\textit{Projection layer}, satu atau lebih \textit{Hidden layer}
+dan \textit{Output layer} (Figure \ref{fig:nnlm-layer-vis}). 
+Layer-layer ini bisa kita tulis sebagai komposisi fungsi seperti berikut:
+\marginnote{$W^{iT}$ adalah matrix transpose dari matrix $W^{i}$}
+$$x_{t}^{'}=f(x_{t-1}, \ldots, x_{t-n}; \theta)$$
+untuk detailnya:
+\begin{flalign*}
+\mbox{output: } \left[ f_{\theta}^{4} \right]_{i} &= x_{t}^{'} = \sigma\left(W^{4T}\left[ f_{\theta}^{3} \right]_{i} + b^{4}\right) &\\
+\mbox{hidden: } \left[ f_{\theta}^{3} \right]_{i} &= \tanh\left(W^{3T}\left[ f_{\theta}^{2} \right]_{i} + b^{3}\right) &\\
+\mbox{projection: }\left[ f_{\theta}^{2} \right]_{i} &= \left(
+  W^{2T}x_{t-1}, W^{2T}x_{t-2}, \ldots, W^{2T}x_{t-n}
+  \right)
+ &\\
+\mbox{input: } \left[ f_{\theta}^{1} \right]_{i} &= x_{t-1}, \ldots,x_{t-n}
+\end{flalign*}
+
+\begin{figure}
+  \begin{center}
+  \includegraphics{nnlm-layer-vis-small-horizontal.pdf}
+  \end{center}
+  \caption{
+  Visualisasi \textit{Feedforward Neural Net Language Model} 
+  dengan $|V|=6$ dan hyperparameter $n=4$, $m=2$ dan $h=5$. 
+  }
+  \label{fig:nnlm-layer-vis}
+\end{figure}
+
+Oke, kita bahas mulai dari input layer. Di layer ini setiap 
+$$x_{t-1}, x_{t-2},\ldots,x_{t-n} \in \R^{|V| \times 1}$$
+adalah vektor 1-of-$|V|$
+dari $n$ kata sebelumnya $w_{t-1}, w_{t-2},\ldots,w_{t-n}$.
+
+Selanjutnya untuk projection layer. Di paper Bengio et al. (2003), 
+layer ini 
+disebut \textit{The shared word features layer} karena di layer ini ada
+parameter word embedding $W^{2} \in \R^{|V|\times m}$ atau matrix 
+$|V|\times m$ dimana setiap barisnya adalah vektor yang
+berdimensi $m$. Vektor-vektor inilah yang nantinya kita pakai untuk
+merepresentasikan kata-kata yang akan kita clustering.
+
+Hal yang menarik di layer ini adalah tidak adanya fungsi aktivasi 
+non-linear seperti $\tanh$ yang ada di hidden layer. Jadi disini 
+setiap $x_{t-1}, x_{t-2},\ldots,x_{t-n}$ langsung di proyeksikan 
+oleh $W^{2} \in \R^{|V|\times m}$ ke dimensi yang lebih kecil 
+$v_{i} \in \R^{m\times 1}$. $\left[ f_{\theta}^{2} \right]_{i}$ 
+merupakan matrix hasil 
+kontatenasi dari vektor $v_{t-1}, v_{t-2},\ldots,v_{t-n}$.
+
+Kemudian output dari projection layer 
+$\left[ f_{\theta}^{2} \right]_{i} \in \R^{nm\times 1}$ 
+kita operasikan di hidden layer yang mempunyai parameter 
+$W^{3} \in \R^{h \times nm}$ dan $b^{3} \in \R^{h}$
+dengan $h$ adalah jumlah \textit{hidden units}.
+Fungsi aktivasi yang ada di layer ini adalah \textit{hyperbolic tangent}.
+Di layer ini kita dapat 
+$\left[ f_{\theta}^{3} \right]_{i} \in \R^{h\times 1}$.
+
+Yang terakhir, output layer. Di layer ini kita menggunakan
+fungsi aktivasi $softmax$, sebagai klasifikasi log-linear,
+untuk mendapatkan nilai probabilitas kata apa yang akan 
+muncul berikutnya. Di layer ini kita punya 
+parameter $W^{3} \in \R^{h \times |V|}$ dan $b^{3} \in \R^{|V|}$. 
+Di layer ini kita dapat 
+$\left[ f_{\theta}^{4} \right]_{i} \in \R^{|V|\times 1}$
+dimana $\left[ f_{\theta}^{4} \right]_{i}\left(t\right)$ adalah
+probabilitas kata $w_{t}$ yang akan muncul berikutnya.
+
+Model ini di training menggunakan \textit{stochastic gradient ascent}
+dengan tujuan untuk memaksimalkan fungsi tujuan berikut:
+$$
+L = \frac{1}{N}\sum_{i=1}^{N}\log{
+  \left[f(x_{t-1}, \ldots, x_{t-n}; \theta)\right]_{i}
+}
+$$
+dengan $N$ adalah jumlah training data.
+
+Untuk cara update parameternya:
+$$
+\theta_{baru} \leftarrow \theta_{lama} + \frac{\partial{L}}{\partial{\theta}}
+$$
+
+Btw, pada prakteknya model ini sangat jarang sekali digunakan karena
+memerlukan daya komputasi yang besar. Terutama pada komputasi di hidden
+layernya. Untuk itu Mikolov et al. (2013), mengusulkan model yang lebih
+baik yaitu \textit{Continuous Bag-of-Words Model} dan 
+\textit{Continuous Skip-gram Model} atau sangat
+populer dengan nama \textit{Word2Vec}. Dua model inilah yang akan kita bahas 
+berikutnya.
+
+\subsection{Continuous Bag-of-Words Model (CBOW)}\label{sec:cbow}
+Perbedaan mendasar dari CBOW dengan NNLM terletak pada konteks
+input katanya, projection layer dan tidak adanya hidden layer.
+\begin{figure}
+  \begin{center}
+  \includegraphics[]{cbow-pred-vis.pdf}
+  \end{center}
+  \caption{CBOW mencoba memprediksi kata yang akan muncul 
+  $w_{t}$ berdasarkan konteks 2 kata sebelumnya: "stock" dan "sale",
+  dan 2 kata setelahnya "bayar" dan "dirumah".
+  }
+\end{figure}
+
+Ide sederhana dari CBOW adalah model ini ingin memprediksi kata
+yang akan muncul $w_{t}$ berdasarkan informasi konteks 
+$n$ kata sebelum dan $n$ kata setelahnya a $w_{t-n}, \ldots, w_{t-1}, w_{t+1}, \ldots w_{t+n}$.
+
+\nocite{DBLP:journals/corr/Rong14}
+
+CBOW punya 3 layer, yaitu \textit{Input layer}, 
+\textit{Projection layer} dan \textit{Output layer} 
+(Figure \ref{fig:cbow-layer-vis}).
+Kita bisa tulis model ini sebagai komposisi fungsi seperti berikut:
+$$x_{t}^{'}=f(x_{t-n}, \ldots, x_{t-1}, x_{t+1}, \ldots, x_{t+n}; \theta)$$
+untuk detailnya:
+\begin{flalign*}
+\mbox{output: } \left[ f_{\theta}^{3} \right]_{i} &= x_{t}^{'} = 
+\sigma\left(W^{3T}\left[ f_{\theta}^{2} \right]_{i} + b^{3}\right)&\\
+\mbox{projection: }\left[ f_{\theta}^{2} \right]_{i} &= \frac{1}{2n} \left(
+  W^{2T}x_{t-n} + \ldots + W^{2T}x_{t-1} + W^{2T}x_{t+1} + \ldots + 
+  W^{2T}x_{t+n}
+  \right)&\\
+\mbox{input: } \left[ f_{\theta}^{1} \right]_{i} &= x_{t-n}, \ldots, x_{t-1} x_{t+1}, \ldots, x_{t+n} 
+\end{flalign*}
+
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=100mm]{cbow-layer-vis-small-horizontal.pdf}
+  \end{center}
+  \caption{
+  Visualisasi \textit{Continuous Bag-of-Words Model} 
+  dengan vocabulary berjumlah $|V|$ dan hyperparameter 
+  $n=2$, $m=2$ dan $h=5$. 
+  }
+  \label{fig:cbow-layer-vis}
+\end{figure}
+
+Oke, kita bahas mulai dari input layer nya. Di layer ini
+$$x_{t-n}, \ldots, x_{t-1} x_{t+1}, \ldots, x_{t+n} \in \R^{|V| \times 1}$$
+merupakan vektor 1-of-$|V|$ dari konteks $n$ kata sebelum 
+$w_{t-n},\ldots,w_{t-1}$ dan 
+$n$ kata setelahnya $w_{t+1},\ldots,w_{t+n}$.
+
+Di projection layer, vektor $|V|x1$ tersebut di proyeksikan ke dimensi yang
+lebih kecil. Perbedaan model ini dengan model NNLM adalah, model ini 
+memproyeksikan $x_{t-n}, \ldots, x_{t-1} x_{t+1}, \ldots, x_{t+n}$
+ke satu vektor $v \in \R^{m \times 1}$ saja
+dengan cara mengambil rata-ratanya.
+$$
+v = \frac{1}{2n} \left(
+    W^{2T}x_{t-n} + \ldots + W^{2T}x_{t-1} + W^{2T}x_{t+1} 
+    + \ldots + W^{2T}x_{t+n}
+  \right)
+$$
+
+Di model ini tidak ada hidden layer.
+
+Untuk output layer, metode training dan cara update parameternya sama 
+dengan model NNLM.
+
+Untuk fungsi tujuannya ada sedikit modifikasi:
+$$
+C = \frac{1}{N}\sum_{i=1}^{N}\log{
+  \left[f(x_{t-n}, \ldots, x_{t-1}, x_{t+1}, \ldots, x_{t+n}; \theta)
+  \right]_{i}
+}
+$$
+dengan $N$ adalah banyaknya training data. 
+
+Sama seperti model NNLM, hasil akhir dari model ini yang kita pakai
+adalah parameter $W^{2} \in \R^{|V| \times m}$ dimana setiap barisnya
+merupakan representasi vektor $m$-dimensional dari kata-kata yang
+ada di $V$.
+
+
+\subsection{Continuous Skip-gram Model}\label{sec:skipgram}
+% oke, kenapa kok pakai consensus clustering
+% apa penyebabnya
+% dll
+Berbeda dengan CBOW yang mau coba prediksi suatu kata berdasarkan 
+konteksnya, ide sederhana dari model Skip-gram ini adalah dia mau 
+mencoba prediksi konteks berdasarkan satu kata aja.
+
+\begin{figure}  
+  \begin{center}
+  \includegraphics[]{skipgram-pred-vis.pdf}
+  \end{center}
+  \caption{Skip-gram mencoba memprediksi konteks $n$ kata setelah
+  dan $n$ kata sebelum berdasarkan kata "bisa".
+  }
+\end{figure}
+
+Sama seperti CBOW, Skip-gram punya 3 layer. Ada \textit{Input layer}, 
+\textit{Projection layer} dan \textit{Output layer} 
+(Figure \ref{fig:skipgram-layer-vis}). Kita bisa tulis model ini sebagai komposisi fungsi seperti berikut:
+$$x^{'}=f(x_{t}; \theta)$$
+untuk detailnya:
+\begin{flalign*}
+\mbox{output: } \left[ f_{\theta}^{3} \right]_{i} &= x_{t}^{'} = 
+\sigma\left(W^{3T}\left[ f_{\theta}^{2} \right]_{i} + b^{3}\right)&\\
+\mbox{projection: }\left[ f_{\theta}^{2} \right]_{i} &= v = \left(
+  W^{2T}x_{t}
+  \right)&\\
+\mbox{input: } \left[ f_{\theta}^{1} \right]_{i} &= x_{t}
+\end{flalign*}
+
+\begin{figure}
+  \begin{center}
+  \includegraphics[width=100mm]{skipgram-layer-vis-small-horizontal.pdf}
+  \end{center}
+  \caption{
+  Visualisasi \textit{Continuous Skip-gram Model} 
+  dengan vocabulary berjumlah $|V|$ dan hyperparameter 
+  $n=2$, $m=2$ dan $h=5$. 
+  }
+  \label{fig:skipgram-layer-vis}
+\end{figure}
+
+Oke kita mulai dari yang input layer, model ini inputnya cuma vektor
+1-of-$|V|$ dari kata $w_{t}$ aja.
+
+Kemudian untuk projection layernya, persis sekali dengan CBOW.
+Di layer ini ada parameter $W^{2} \in \R^{|V|\times m}$ dan
+$b^{2} \in \R^{m}$. Di layer ini $x_{t}$ di proyeksikan ke
+vektor dengan dimensi yang lebih kecil 
+$\left[ f_{\theta}^{2} \right]_{i} \in \R^{m}$.
+
+Untuk output layernya kita punya parameter $W^{3} \in \R^{m \times 2n|V|}$
+dan $b^{3} \in \R^{2n|V|}$. Output dari layer ini merupakan vektor yang
+berukuran $2n|V|$ kata dengan tiap-tiap $|V|$ elemen merupakan vektor
+dari konteks kata yang di prediksi.
+
+Output vektornya bisa kita tulis sebagai:
+$$
+x^{'} = \left(
+  p\left(w_{t-n} \mid w_{t}\right), \ldots,
+  p\left(w_{t-1} \mid w_{t}\right),
+  p\left(w_{t+1} \mid w_{t}\right), \ldots,
+  p\left(w_{t+n} \mid w_{t}\right)
+  \right)
+$$
+
+Sehingga kita bisa tulis fungsi tujuan kita sebagai berikut:
+
+$$
+C = \frac{1}{N}\sum_{i=1}^{N}\log{
+  \left[
+    \sum_{j=1}^{-n \leq j \leq n, j \neq 0}
+    p(w_{t+j} \mid w_{t})
+  \right]_{i}
+}
+$$
+
+Dan yang terakhir, sama seperti NNLM dan CBOW, yang kita gunakan
+dari model ini adalah parameter di projection layernya 
+$W^{2} \in \R^{|V|\times m}$ dimana setiap baris adalah vektor
+dari kata-kata yang ada di vocabulary $|V|$.
+
+% NOTE: mungkin kita bahas seikit apa yang bisa kita lakuin
+% dengan word vector? https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/
+% TODO: lanjut ke clustering algorithm
+
+% http://www.tablesgenerator.com/
+% \begin{table}[]
+% \centering
+% \begin{tabular}{|l|l|lll}
+% \cline{1-2}
+% Kategori & Algoritma &  &  &  \\ \cline{1-2}
+% \multirow{3}{*}{Character-Based Similarity} & Longest Common 
+% SubString &  &  &  \\ \cline{2-2}
+%  & Levenshtein distance &  &  &  \\ \cline{2-2}
+%  & N-gram &  &  &  \\ \cline{1-2}
+% \multirow{3}{*}{Term-based Similarity} & Cosine similarity &  &  &  
+% \\ \cline{2-2}
+%  & Euclidean distance &  &  &  \\ \cline{2-2}
+%  & Jaccard similarity &  &  &  \\ \cline{1-2}
+% \end{tabular}
+% \caption{Word Similarity Metrics}\label{tab:similarity-1}
+% \end{table}
+
+\section{Mengukur Nilai Kesamaan antara 2 Vektor Kata}\label{sec:similarity}
+Sebenernya ada banyak cara untuk mengukur nilai kesamaan antara 2 vektor 
+kata.
+Kita disini akan fokus pada \textit{Term-based Similarity} yaitu
+Cosine similarity dan Euclidean similarity. \cite{li2004similarity}
+
+Setelah kita dapat representasi vektor dari kata yang ada di 
+vocabulary, tentunya melalui teknik word embedding yang
+sebelumnya kita bahas, langkah berikutnya yang kita butuhkan
+untuk melakukan pengelompokan kata secara semantik adalah mengukur nilai
+kesamaan semantik antara 2 vektor kata.
+
+Formula yang bisa kita pakai adalah Cosine similarity. Misalkan kita
+punya vektor kata $v_{1}, v_{2} \in \R^{m}$, maka:
+$$
+simlarity\left(v_{1}, v_{2}\right) = \frac{v_{1}\cdot v_{2}}{
+  \|v_{1}\|\| v_{2}\|
+}
+$$ 
+dimana $-1 \leq simlarity\left(v_{1}, v_{2}\right) \leq 1$
+semakin mendekati nilai $1$ semakin similar 2 vektornya.
+
+Untuk yang kedua, kita bisa pake Euclidean distance untuk
+mencari nilai similarity antara 2 vektor kara. 
+
+Untuk mencari Euclidean distance:
+$$
+distance\left(v_{1}, v_{2}\right) = \sqrt{
+  \sum_{i=1}^{n} \left(v_{1i} - v_{2i}\right)^{2}
+}
+$$
+hanya dengan sedikit perubahan kita bisa dapet Euclidean similarity-nya:
+$$
+similarity\left(v_{1}, v_{2}\right) = \frac{1}{1+
+  distance\left(v_{1}, v_{2}\right)
+}
+$$
+
+% % DUMMY %
+% Berikut beberapa algoritma yang bisa kita gunakan untuk mengetahui 
+% dekat atau jauhnya suatu pasangan kata.
+% \hfill \break
+
+% \textbf{Longest Common SubString}\\
+% test\hfill \break
+
+% \textbf{Levenshtein distance}
+% \newline
+% test hello
+% nani akan bahas ini deh
+% \newline\hfill
+
+% \textbf{N-gram}\newline
+% test
+% \newline\hfill
+
+% Kelemahan \textit{Character-Based Similarity} ini adalah kita tidak bisa
+%  untuk
+% mengerti maknanya. Ada kata yang mempunyai beda jauh tapi secara
+% leveinstehin distance dia dekat. Contohnya:
+
+
+% \subsection{Word Embedding}\label{sec:word-embedding-2}
+% Ini adalah bla bla bla
+% \hfill \break
+
+% \textbf{Word2Vec by Google}\\
+% test\hfill \break
+
+% \textbf{GloVe by Standford}
+% \newline
+% test hello
+% nani akan bahas ini deh
+% \newline\hfill
+
+% \textbf{fastText by Facebook}\newline
+% test
+
+% \subsection{Term-Based Similarity}\label{sec:term-based}
+% Ini adalah bla bla bla
+% \hfill \break
+
+% \textbf{Cosine similarity}\\
+% test\hfill \break
+
+% \textbf{Euclidean distance}
+% \newline
+% test hello
+% nani akan bahas ini deh
+% \newline\hfill
+
+% \textbf{Jaccard similarity}\newline
+% test
+
+
+\section{Consensus Clustering}\label{sec:consensus}
+Ide dasarnya adalah kita mau menemukan $w_{c}$ berdasarkan konsensus.
+
+Disini kita akan fokus pada salah satu metode clustering yang disebut
+\textit{Consensus clustering}\cite{Nguyen:2007:CC:1441428.1442126}. 
+Sebenarnya ada beberapa pendekatan untuk 
+Consensus clustering ini diantaranya \textit{Iterative Voting Consensus},
+\textit{Iterative Probabilistic Voting Consen-sus} dan
+\textit{terative Pairwise Consensus} tapi disini 
+kita akan bahas Iterative Voting Consensus dengan sedikit modifikasi
+sesuai kasus kita.
+
+Oke, ide sederhana dari metode ini adalah kita memilih \textit{Centroid}
+atau pusat clusternya berdasarkan nilai kesamaan semantik antara tiap-tiap
+vektor katanya. Untuk psuedocode nya seperti ini:
+
+% \begin{algorithm}
+%   \SetKwInOut{Input}{Input}
+%   \SetKwInOut{Output}{Output}
+%   \Input{Vektor kata $v_{1}, \ldots, v_{|V|} \in \R^{m}$\\
+%   Himpunan cluster kata $C = \{C_{1}, \ldots, C_{k}\}, k \in \N$\\
+%   Threshold similarity $t$
+%   }
+%   \Output{Himpunan cluster $C$ terbaru}
+%   \ForEach{$v_{i}$ in $V$}{
+%     set createNewCluster = True;
+
+%     \ForEach{$C_{i}$ in $C$}{
+%       set $w_{c} = w_{c}$ of $C_{i}$;
+
+%       \If{$similarity(w_{c}, v_{i}) \geq t$}{
+%         $C_{i} = C_{i} \cup \{v_{i}\}$;
+
+%         set createNewCluster = False;
+
+%         break;
+%       }
+%     }
+%     \If{createNewCluster} {
+%       $C = C \cup \{w_{c}=v_{i}\}$
+%     }
+%   }
+%   \caption{Iterative Voting Consensus with slightly modification}
+% \end{algorithm}
+
+\begin{algorithm}
+  \SetKwInOut{Input}{Input}
+  \SetKwInOut{Output}{Output}
+  \Input{Word vector $v_{1}, \ldots, v_{|V|} \in \R^{m}$\\
+  Set of cluster $C = \{C_{1}, \ldots, C_{k}\}, k \in \N$\\
+  Threshold similarity $t$
+  }
+  \Output{Updated set of cluster $C$}
+  \ForEach{$v_{i}$}{
+    set createNewCluster = True;
+
+    \ForEach{$C_{i}$ in $C$}{
+      set $w_{c} = w_{c}$ of $C_{i}$;
+
+      \If{$similarity(w_{c}, v_{i}) \geq t$}{
+        $C_{i} = C_{i} \cup \{v_{i}\}$;
+
+        set createNewCluster = False;
+
+        break;
+      }
+    }
+    \If{createNewCluster} {
+      $C = C \cup \{w_{c}=v_{i}\}$
+    }
+  }
+  \caption{Iterative Voting Consensus with slightly modification}
+\end{algorithm}
+
+
+% \subsection{Hiearchical Clustering}\label{sec:hierarchical-cluster}
+% \subsection{Affinity Propagation}\label{sec:affinity-prop}
+% \subsection{Consensus Clustering}\label{sec:consensus-clustering}
+
+\bibliography{notes}
+\bibliographystyle{plain}
+
+\end{document}
